@@ -1,1 +1,4 @@
 data/
+*.pyc
+models/BERT4Rec/tokenizer/kw_enc.pkl
+models/BERT4Rec/tokenizer/vocab.json
