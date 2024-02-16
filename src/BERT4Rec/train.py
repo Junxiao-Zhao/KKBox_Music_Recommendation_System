@@ -43,8 +43,8 @@ class SequenceDataset(Dataset):
 
         # sample start and end
         end_idx = random.randint(
-            10,
-            group_df.shape[0]) if self.mode == 'train' else group_df.shape[0]
+            10, max(group_df.shape[0],
+                    10)) if self.mode == 'train' else group_df.shape[0]
         start_idx = max(0, end_idx - self.seq_len)
         group_df = group_df.iloc[start_idx:end_idx]
 
@@ -61,7 +61,7 @@ class SequenceDataset(Dataset):
             else:
                 source_items = self.tokenizer.mask(target_items, ratio=0.2)
         else:
-            source_items = target_items[1:] + ['[MASK]']
+            source_items = target_items[:-1] + ['[MASK]']
 
         # padding
         pad_len = self.seq_len - len(target_items)
