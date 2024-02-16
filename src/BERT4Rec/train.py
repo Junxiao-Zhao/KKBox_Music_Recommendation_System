@@ -61,7 +61,7 @@ class SequenceDataset(Dataset):
             else:
                 source_items = self.tokenizer.mask(target_items, ratio=0.2)
         else:
-            source_items = target_items[:] + ['[MASK]']
+            source_items = target_items[1:] + ['[MASK]']
 
         # padding
         pad_len = self.seq_len - len(target_items)
