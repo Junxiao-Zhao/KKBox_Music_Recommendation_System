@@ -2,11 +2,18 @@ import random
 
 import pandas as pd
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils import clip_grad_norm_
+from torch.optim.lr_scheduler import LambdaLR
 from pandas.core.groupby.generic import DataFrameGroupBy
 
-from . import Tokenizer
+from .tokenizer.tokenizer import Tokenizer
+from .model import KeBERT4Rec
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class SequenceDataset(Dataset):
@@ -86,3 +93,48 @@ class SequenceDataset(Dataset):
 
         return (source_item_tensor, target_item_tensor, mask,
                 source_keywords_tensor, target_keywords_tensor)
+
+
+def train(model: KeBERT4Rec, data_loader: DataLoader, num_epochs: int):
+
+    for param in model.parameters():
+        nn.init.trunc_normal_(param, mean=0, std=0.02, a=-0.02, b=0.02)
+
+    optimizer = optim.Adam(model.parameters(),
+                           lr=1e-4,
+                           betas=(0.9, 0.999),
+                           weight_decay=0.01)
+    scheduler = LambdaLR(optimizer,
+                         lr_lambda=lambda epoch: 1 - epoch / num_epochs)
+
+    model.to(DEVICE)
+
+    for epoch in range(num_epochs):
+        model.train()
+
+        total_loss = 0
+        for batch in data_loader:
+            for i in range(len(batch)):
+                batch[i] = batch[i].to(DEVICE)
+            (source_item, target_item, mask, source_keyword,
+             target_keyword) = batch
+
+            item_out, keyword_out = model(source_item, source_keyword)
+
+            item_loss, item_acc = model.item_loss_acc(item_out, target_item,
+                                                      mask)
+            keyword_loss, keyword_sim = model.kw_loss_sim(
+                keyword_out, target_keyword, mask)
+
+            loss = item_loss + keyword_loss
+            total_loss += loss.item()
+
+            optimizer.zero_grad()
+            loss.backward()
+            clip_grad_norm_(model.parameters(), max_norm=5)
+            optimizer.step()
+
+        print("Epoch %d avg loss %.2f" %
+              (epoch, total_loss / len(data_loader)))
+
+        scheduler.step()

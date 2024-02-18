@@ -13,6 +13,7 @@ class KeBERT4Rec(nn.Module):
                  keyword_size: int,
                  dim: int = 64,
                  dropout: float = 0.4,
+                 num_head: int = 4,
                  num_layers: int = 3) -> None:
         """Constructor
 
@@ -32,8 +33,9 @@ class KeBERT4Rec(nn.Module):
 
         # Transformer Encoder
         encoder_layer = nn.TransformerEncoderLayer(dim,
-                                                   nhead=4,
+                                                   nhead=num_head,
                                                    dropout=dropout,
+                                                   activation='gelu',
                                                    batch_first=True)
         self.encoder = nn.TransformerEncoder(encoder_layer,
                                              num_layers=num_layers)
