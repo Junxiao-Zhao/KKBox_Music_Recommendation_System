@@ -3,7 +3,6 @@ import json
 import random
 from typing import Dict, List, Iterable
 
-import torch
 import joblib
 import numpy as np
 import pandas as pd
@@ -24,6 +23,8 @@ class Tokenizer:
 
         self.vocab = vocab
         self.keyword_encoder = keyword_encoder
+        self.PAD = self.vocab['item2id']['[PAD]']
+        self.MASK = self.vocab['item2id']['[MASK]']
 
     @classmethod
     def construct(cls,
@@ -95,16 +96,15 @@ class Tokenizer:
 
         return masked_tokens
 
-    def convert_tokens_to_ids(self, tokens: Iterable[str]):
+    def convert_tokens_to_ids(self, tokens: Iterable[str]) -> List[int]:
         """Convert tokens into ids
 
         :param tokens: a sequence of tokens
-        :return: a tensor of ids
+        :return: a list of ids
         """
 
-        return torch.tensor(list(
-            map(lambda item: self.vocab['item2id'].get(item, 1), tokens)),
-                            dtype=torch.long)
+        return list(
+            map(lambda item: self.vocab['item2id'].get(item, 1), tokens))
 
     def convert_ids_to_tokens(self, ids: Iterable[int]) -> List[str]:
         """Convert ids into tokens
@@ -119,11 +119,10 @@ class Tokenizer:
         """Encode keywords using multi-hot encoding
 
         :param keyword_ls: a set of keywords for each item
-        :return: a tensor of the multi-hot encodings
+        :return: an array of the multi-hot encodings
         """
 
-        return torch.tensor(self.keyword_encoder.transform(keyword_ls),
-                            dtype=torch.long)
+        return self.keyword_encoder.transform(keyword_ls)
 
     def decode_keywords(self, mulit_hot: np.ndarray):
         """Decode multi-hot encoding into keywords
