@@ -1,4 +1,5 @@
 data/
+tensorboard/
 *.pyc
 src/BERT4Rec/tokenizer/kw_enc.pkl
 src/BERT4Rec/tokenizer/vocab.json
