@@ -8,7 +8,7 @@ project/
 ├── docs/                   # Documentation files
 │
 ├── src/                    # Source files
-│   ├── model/              # each model
+│   ├── models/             # each one's folder
 │
 ├── data/                   # CSV files
 │
@@ -18,7 +18,7 @@ project/
 │
 ├── config/                 # Configuration files
 |
-├── tensorboard             # TensorBoard
+├── tensorboard/            # TensorBoard
 │
 ├── .gitignore              # Specifies intentionally untracked files to ignore
 │
@@ -30,4 +30,4 @@ project/
 
 ## Notes
 - Only push codes. Do not push csv files.
-- Do not push to main directly. Each person pushes to their own branch.
+- Do not push to `main` directly. Each person pushes to their own branch (use the first name as the branch name), then merge to `main`.
