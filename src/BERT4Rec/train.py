@@ -1,3 +1,4 @@
+import os
 import time
 import random
 
@@ -115,9 +116,12 @@ class SequenceDataset(Dataset):
                 target_keywords)
 
 
-def train(model: KeBERT4Rec, data_loader: DataLoader, num_epochs: int):
+def train(model: KeBERT4Rec, data_loader: DataLoader, num_epochs: int,
+          checkpoint_fd: str, save_epochs: int):
 
     writer = SummaryWriter(r'../../tensorboard')
+
+    os.makedirs(checkpoint_fd, exist_ok=True)
 
     for param in model.parameters():
         nn.init.trunc_normal_(param, mean=0, std=0.02, a=-0.02, b=0.02)
@@ -135,6 +139,8 @@ def train(model: KeBERT4Rec, data_loader: DataLoader, num_epochs: int):
 
         model.train()
         total_loss = 0
+        total_acc = 0
+        total_sim = 0
         ep_start = time.time()
         for i, batch in enumerate(data_loader):
             # start = time.time()
@@ -150,6 +156,8 @@ def train(model: KeBERT4Rec, data_loader: DataLoader, num_epochs: int):
 
             loss = item_loss + keyword_loss
             total_loss += loss.item()
+            total_acc += item_acc.item()
+            total_sim += keyword_sim.item()
 
             optimizer.zero_grad()
             loss.backward()
@@ -157,9 +165,29 @@ def train(model: KeBERT4Rec, data_loader: DataLoader, num_epochs: int):
             optimizer.step()
             # print(f"Batch {i}, use {time.time()-start:.2f}")
 
-        print("Epoch %d avg loss %.2f, time %.2f" %
-              (epoch, total_loss / len(data_loader), time.time() - ep_start))
+        scheduler.step()
+
+        print(
+            "Epoch %d: avg loss %.2f, avg acc %.2f, avg sim %.2f, time %.2f" %
+            (epoch, total_loss / len(data_loader),
+             total_acc / len(data_loader), total_sim / len(data_loader),
+             time.time() - ep_start))
         writer.add_scalar('Average Training Loss',
                           total_loss / len(data_loader), epoch)
+        writer.add_scalar('Average Accuracy', total_acc / len(data_loader),
+                          epoch)
+        writer.add_scalar('Average Similarity', total_sim / len(data_loader),
+                          epoch)
 
-        scheduler.step()
+        if (epoch + 1) % save_epochs == 0:
+            checkpoint_path = os.path.join(checkpoint_fd,
+                                           f'checkpoint_epoch_{epoch}.pth')
+            torch.save(
+                {
+                    'epoch': epoch + 1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'loss': total_loss
+                }, checkpoint_path)
+            print(f'Checkpoint saved to {checkpoint_path}')
