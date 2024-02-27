@@ -11,7 +11,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.tensorboard import SummaryWriter
 
-from .tokenizer.tokenizer import Tokenizer
+from .tokenizer import Tokenizer
 from .model import KeBERT4Rec
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

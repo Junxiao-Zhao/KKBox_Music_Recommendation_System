@@ -1,5 +1,5 @@
-data/
+data/*.csv
 tensorboard/
 *.pyc
-src/BERT4Rec/tokenizer/kw_enc.pkl
-src/BERT4Rec/tokenizer/vocab.json
+src/BERT4Rec/kw_enc.pkl
+src/BERT4Rec/vocab.json
