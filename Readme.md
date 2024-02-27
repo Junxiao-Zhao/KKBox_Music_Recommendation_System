@@ -19,6 +19,8 @@ project/
 ├── config/                 # Configuration files
 |
 ├── tensorboard/            # TensorBoard
+|
+├── checkpoints/            # Checkpoints
 │
 ├── .gitignore              # Specifies intentionally untracked files to ignore
 │
