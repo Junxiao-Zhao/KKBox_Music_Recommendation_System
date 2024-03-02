@@ -11,6 +11,8 @@ from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.tensorboard import SummaryWriter
+from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
 from .tokenizer import Tokenizer
 from .model import KeBERT4Rec
@@ -84,7 +86,7 @@ class SequenceDataset(Dataset):
                 source_keywords = target_keywords.clone()
                 source_keywords[-1] = self.tokenizer.MASK
             else:
-                mask = torch.rand(target_items.shape, device=DEVICE) <= 0.2
+                mask = torch.rand(target_items.shape, device=DEVICE) <= 0.5
                 source_items = target_items.masked_fill(
                     mask, self.tokenizer.MASK)
                 source_keywords = target_keywords.masked_fill(
@@ -118,66 +120,55 @@ class SequenceDataset(Dataset):
 
 def train(model: KeBERT4Rec, data_loader: DataLoader, num_epochs: int,
           checkpoint_fd: str, save_epochs: int):
-
     writer = SummaryWriter(r'../../tensorboard')
-
     os.makedirs(checkpoint_fd, exist_ok=True)
 
-    for param in model.parameters():
-        nn.init.trunc_normal_(param, mean=0, std=0.02, a=-0.02, b=0.02)
-
-    optimizer = optim.Adam(model.parameters(),
-                           lr=1e-4,
-                           betas=(0.9, 0.999),
-                           weight_decay=0.01)
+    optimizer = optim.AdamW(model.parameters(),
+                            lr=1e-4,
+                            betas=(0.9, 0.999),
+                            weight_decay=0.01)
     scheduler = LambdaLR(optimizer,
                          lr_lambda=lambda epoch: 1 - epoch / num_epochs)
-
     model.to(DEVICE)
 
-    for epoch in range(num_epochs):
-
+    for epoch in tqdm(range(num_epochs)):
         model.train()
-        total_loss = 0
-        total_acc = 0
-        total_sim = 0
+        total_loss, total_acc, total_sim = 0, 0, 0
         ep_start = time.time()
-        for i, batch in enumerate(data_loader):
-            # start = time.time()
+
+        for batch in data_loader:
             (source_item, target_item, mask, source_keyword,
              target_keyword) = batch
-
-            item_out, keyword_out = model(source_item, source_keyword)
-
-            item_loss, item_acc = model.item_loss_acc(item_out, target_item,
-                                                      mask)
+            item_out, keyword_out = model(source_item.to(DEVICE),
+                                          source_keyword.to(DEVICE))
+            item_loss, item_acc = model.item_loss_acc(item_out,
+                                                      target_item.to(DEVICE),
+                                                      mask.to(DEVICE))
             keyword_loss, keyword_sim = model.kw_loss_sim(
-                keyword_out, target_keyword, mask)
+                keyword_out, target_keyword.to(DEVICE), mask.to(DEVICE))
 
             loss = item_loss + keyword_loss
-            total_loss += loss.item()
-            total_acc += item_acc.item()
-            total_sim += keyword_sim.item()
-
             optimizer.zero_grad()
             loss.backward()
             clip_grad_norm_(model.parameters(), max_norm=5)
             optimizer.step()
-            # print(f"Batch {i}, use {time.time()-start:.2f}")
+
+            total_loss += loss.item()
+            total_acc += item_acc.item()
+            total_sim += keyword_sim.item()
 
         scheduler.step()
+        epoch_duration = time.time() - ep_start
+        avg_loss = total_loss / len(data_loader)
+        avg_acc = total_acc / len(data_loader)
+        avg_sim = total_sim / len(data_loader)
 
         print(
             "Epoch %d: avg loss %.2f, avg acc %.2f, avg sim %.2f, time %.2f" %
-            (epoch, total_loss / len(data_loader),
-             total_acc / len(data_loader), total_sim / len(data_loader),
-             time.time() - ep_start))
-        writer.add_scalar('Average Training Loss',
-                          total_loss / len(data_loader), epoch)
-        writer.add_scalar('Average Accuracy', total_acc / len(data_loader),
-                          epoch)
-        writer.add_scalar('Average Similarity', total_sim / len(data_loader),
-                          epoch)
+            (epoch, avg_loss, avg_acc, avg_sim, epoch_duration))
+        writer.add_scalar('Average Training Loss', avg_loss, epoch)
+        writer.add_scalar('Average Accuracy', avg_acc, epoch)
+        writer.add_scalar('Average Similarity', avg_sim, epoch)
 
         if (epoch + 1) % save_epochs == 0:
             checkpoint_path = os.path.join(checkpoint_fd,
@@ -191,3 +182,17 @@ def train(model: KeBERT4Rec, data_loader: DataLoader, num_epochs: int,
                     'loss': total_loss
                 }, checkpoint_path)
             print(f'Checkpoint saved to {checkpoint_path}')
+
+
+# train_df = pd.read_csv('../../data/sampled_train.csv')
+# songs_df = pd.read_csv('../../data/songs.csv')
+# tr_df, val_df = train_test_split(train_df, test_size=0.2, shuffle=False)
+# tr_song_df = tr_df.merge(songs_df, how='inner', on='song_id')
+
+# tknr = Tokenizer.load(load_kw_enc=True)
+# train_ds = SequenceDataset(tr_song_df, 'train', tknr, 50)
+# train_dl = DataLoader(train_ds, batch_size=8, shuffle=True)
+# model = KeBERT4Rec(len(tknr.vocab['id2item']),
+#                    len(tknr.keyword_encoder.classes_)).to(DEVICE)
+
+# train(model, train_dl, 2000, '../../checkpoints', 50)
