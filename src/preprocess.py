@@ -8,100 +8,155 @@ from datetime import datetime, timedelta
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 
 
-def preprocess_train(train_df: pd.DataFrame):
-    """Preprocess train
+class Preprocesser:
+    """Preprocesser for DeepCTR"""
 
-    :param train_df: the train dataframe
-    """
+    def __init__(self) -> None:
+        """Constructor"""
 
-    # fill Nan
-    train_df['source_system_tab'].fillna('Unknown', inplace=True)
-    train_df['source_screen_name'].fillna('Unknown', inplace=True)
-    train_df['source_type'].fillna('Unknown', inplace=True)
+        self.song_le = LabelEncoder()  # song_id
+        self.msno_le = LabelEncoder()  # msno
 
-    # encode
-    train_df['source_system_tab'] = LabelEncoder().fit_transform(
-        train_df['source_system_tab'])
-    train_df['source_screen_name'] = LabelEncoder().fit_transform(
-        train_df['source_screen_name'])
-    train_df['source_type'] = LabelEncoder().fit_transform(
-        train_df['source_type'])
+        self.sst_le = LabelEncoder()  # source_system_tab
+        self.ssn_le = LabelEncoder()  # source_screen_name
+        self.st_le = LabelEncoder()  # source_type
 
+        self.artist_le = LabelEncoder()  # artist_name
+        self.composer_le = LabelEncoder()  # composer
+        self.lyricist_le = LabelEncoder()  # lyricist
+        self.language_le = LabelEncoder()  # language
+        self.songlen_ss = StandardScaler()  # song_length
+        self.genre2idx = {'[PAD]': 0}  # genre_ids
 
-def preprocess_songs(songs_df: pd.DataFrame):
-    """Preprocess songs
+        self.dur_mm = MinMaxScaler()  # duration
+        self.bd_mm = MinMaxScaler()  # age
+        self.city_le = LabelEncoder()  # city
+        self.via_le = LabelEncoder()  # registered_via
+        self.gender_le = LabelEncoder()  # gender
 
-    :param songs_df: the song dataframe
-    """
+    def fit_train_test(self, train_test_df: pd.DataFrame):
+        """Fit train and test
 
-    # fill Nan
-    songs_df['language'] = songs_df['language'].fillna(0.0).astype(str)
-    songs_df['genre_ids'].fillna('Unknown', inplace=True)
-    songs_df['composer'].fillna(songs_df['artist_name'], inplace=True)
-    songs_df['lyricist'].fillna(songs_df['lyricist'], inplace=True)
+        :param train_test_df: the train or test dataframe
+        """
 
-    # encode & preprocess
-    genre2idx = {}
+        # fill Nan
+        train_test_df['source_system_tab'].fillna('Unknown', inplace=True)
+        train_test_df['source_screen_name'].fillna('Unknown', inplace=True)
+        train_test_df['source_type'].fillna('Unknown', inplace=True)
 
-    def map_idx(genre_ls: List[str]):
-        for genre in genre_ls:
-            if genre not in genre2idx:
-                genre2idx[genre] = len(genre2idx) + 1
+        # encode
+        self.sst_le.fit(train_test_df['source_system_tab'])
+        self.ssn_le.fit(train_test_df['source_screen_name'])
+        self.st_le.fit(train_test_df['source_type'])
 
-        return list(map(lambda genre: genre2idx[genre], genre_ls))
+    def transform_train_test(self, train_test_df: pd.DataFrame):
+        """Transform train and test
 
-    songs_df['genre_ids'] = songs_df['genre_ids'].astype(str).str.split('|')
-    songs_df['genre_ids'] = songs_df['genre_ids'].apply(map_idx)
+        :param train_test_df: the train or test dataframe
+        """
 
-    songs_df['song_length'] = StandardScaler().fit_transform(
-        songs_df['song_length'].to_numpy().reshape(-1, 1)).reshape(-1)
+        # fill Nan
+        train_test_df['source_system_tab'].fillna('Unknown', inplace=True)
+        train_test_df['source_screen_name'].fillna('Unknown', inplace=True)
+        train_test_df['source_type'].fillna('Unknown', inplace=True)
 
-    songs_df['artist_name'] = LabelEncoder().fit_transform(
-        songs_df['artist_name'])
-    songs_df['composer'] = LabelEncoder().fit_transform(songs_df['composer'])
-    songs_df['lyricist'] = LabelEncoder().fit_transform(songs_df['lyricist'])
-    songs_df['language'] = LabelEncoder().fit_transform(songs_df['language'])
+        # encode
+        train_test_df['source_system_tab'] = self.sst_le.transform(
+            train_test_df['source_system_tab'])
+        train_test_df['source_screen_name'] = self.ssn_le.transform(
+            train_test_df['source_screen_name'])
+        train_test_df['source_type'] = self.st_le.transform(
+            train_test_df['source_type'])
 
+    def preprocess_songs(self, songs_df: pd.DataFrame):
+        """Preprocess songs
 
-def preprocess_members(members_df: pd.DataFrame):
-    """Preprocess members
+        :param songs_df: the song dataframe
+        """
 
-    :param members_df: the member dataframe
-    """
+        # fill Nan
+        songs_df['language'] = songs_df['language'].fillna(0.0).astype(str)
+        songs_df['genre_ids'].fillna('Unknown', inplace=True)
+        songs_df['composer'].fillna(songs_df['artist_name'], inplace=True)
+        songs_df['lyricist'].fillna(songs_df['lyricist'], inplace=True)
 
-    # duration
-    members_df['registration_init_time'] = pd.to_datetime(
-        members_df['registration_init_time'].astype(str))
-    members_df['expiration_date'] = pd.to_datetime(
-        members_df['expiration_date'].astype(str))
-    members_df['registration_init_time'] = members_df[
-        'registration_init_time'].apply(lambda x: np.nan
-                                        if x < datetime(2005, 10, 1) else x)
-    members_df['expiration_date'] = members_df['expiration_date'].apply(
-        lambda x: np.nan if x >= datetime(2017, 9, 27) else x)
-    dur_col = (members_df['expiration_date'] -
-               members_df['registration_init_time']
-               ).apply(lambda x: 0 if x < timedelta(0) else x.days)
-    members_df['duration'] = MinMaxScaler().fit_transform(
-        dur_col.to_numpy().reshape(-1, 1)).reshape(-1)
+        # encode & preprocess
+        def map_idx(genre_ls: List[str]):
+            for genre in genre_ls:
+                if genre not in self.genre2idx:
+                    self.genre2idx[genre] = len(self.genre2idx)
 
-    # age
-    members_df['bd'] = members_df['bd'].apply(lambda x: np.nan
-                                              if x <= 5 or x >= 75 else x)
+            return list(map(lambda genre: self.genre2idx[genre], genre_ls))
 
-    # encode
-    members_df['city'] = LabelEncoder().fit_transform(members_df['city'])
-    members_df['registered_via'] = LabelEncoder().fit_transform(
-        members_df['registered_via'])
+        songs_df['genre_ids'] = songs_df['genre_ids'].astype(str).str.split(
+            '|')
+        songs_df['genre_ids'] = songs_df['genre_ids'].apply(map_idx)
 
+        songs_df['song_length'] = self.songlen_ss.fit_transform(
+            songs_df['song_length'].to_numpy().reshape(-1, 1)).reshape(-1)
 
-def padding_genre(split_genre: pd.Series):
-    """Pad genres
+        songs_df['artist_name'] = self.artist_le.fit_transform(
+            songs_df['artist_name'])
+        songs_df['composer'] = self.composer_le.fit_transform(
+            songs_df['composer'])
+        songs_df['lyricist'] = self.lyricist_le.fit_transform(
+            songs_df['lyricist'])
+        songs_df['language'] = self.language_le.fit_transform(
+            songs_df['language'])
 
-    :param split_genre: a series of lists of genres
-    :return: a tensor of size (batch, vocab)
-    """
+        self.song_le.fit(songs_df['song_id'])
 
-    return pad_sequence(list(map(torch.Tensor, split_genre.tolist())),
-                        batch_first=True,
-                        padding_value=0)
+    def preprocess_members(self, members_df: pd.DataFrame):
+        """Preprocess members
+
+        :param members_df: the member dataframe
+        """
+
+        # duration
+        members_df['registration_init_time'] = pd.to_datetime(
+            members_df['registration_init_time'].astype(str))
+        members_df['expiration_date'] = pd.to_datetime(
+            members_df['expiration_date'].astype(str))
+        members_df['registration_init_time'] = members_df[
+            'registration_init_time'].apply(
+                lambda x: np.nan if x < datetime(2005, 10, 1) else x)
+        members_df['expiration_date'] = members_df['expiration_date'].apply(
+            lambda x: np.nan if x >= datetime(2017, 9, 27) else x)
+        dur_col = (members_df['expiration_date'] -
+                   members_df['registration_init_time']
+                   ).apply(lambda x: 0 if x < timedelta(0) else x.days)
+        members_df['duration'] = self.dur_mm.fit_transform(
+            dur_col.to_numpy().reshape(-1, 1)).reshape(-1)
+
+        # age
+        members_df['bd'] = members_df['bd'].apply(lambda x: np.nan
+                                                  if x <= 5 or x >= 75 else x)
+        members_df['bd'].fillna(members_df['bd'].median(), inplace=True)
+        members_df['bd'] = self.bd_mm.fit_transform(
+            members_df['bd'].to_numpy().reshape(-1, 1)).reshape(-1)
+
+        # gender
+        members_df['gender'].fillna('Unknown', inplace=True)
+        members_df['gender'] = self.gender_le.fit_transform(
+            members_df['gender'])
+
+        # encode
+        members_df['city'] = self.city_le.fit_transform(members_df['city'])
+        members_df['registered_via'] = self.via_le.fit_transform(
+            members_df['registered_via'])
+
+        # msno
+        self.msno_le.fit(members_df['msno'])
+
+    @staticmethod
+    def padding_genre(split_genre: pd.Series):
+        """Pad genres
+
+        :param split_genre: a series of lists of genres
+        :return: a tensor of size (batch, vocab)
+        """
+
+        return pad_sequence(list(map(torch.Tensor, split_genre.tolist())),
+                            batch_first=True,
+                            padding_value=0)
