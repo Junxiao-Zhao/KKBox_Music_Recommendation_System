@@ -2,8 +2,7 @@ from typing import List
 
 import pandas as pd
 import numpy as np
-import torch
-from torch.nn.utils.rnn import pad_sequence
+from tensorflow.keras.utils import pad_sequences
 from datetime import datetime, timedelta
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 
@@ -34,6 +33,9 @@ class Preprocesser:
         self.via_le = LabelEncoder()  # registered_via
         self.gender_le = LabelEncoder()  # gender
 
+        self.genre_maxlen = 8
+        self.vocab_size = {}
+
     def fit_train_test(self, train_test_df: pd.DataFrame):
         """Fit train and test
 
@@ -49,6 +51,11 @@ class Preprocesser:
         self.sst_le.fit(train_test_df['source_system_tab'])
         self.ssn_le.fit(train_test_df['source_screen_name'])
         self.st_le.fit(train_test_df['source_type'])
+
+        # record vocab size
+        self.vocab_size['source_system_tab'] = len(self.sst_le.classes_)
+        self.vocab_size['source_screen_name'] = len(self.ssn_le.classes_)
+        self.vocab_size['source_type'] = len(self.st_le.classes_)
 
     def transform_train_test(self, train_test_df: pd.DataFrame):
         """Transform train and test
@@ -107,6 +114,14 @@ class Preprocesser:
 
         self.song_le.fit(songs_df['song_id'])
 
+        # record vocab size
+        self.genre_maxlen = max(list(map(len, songs_df['genre_ids'])))
+        self.vocab_size['artist_name'] = len(self.artist_le.classes_)
+        self.vocab_size['composer'] = len(self.composer_le.classes_)
+        self.vocab_size['lyricist'] = len(self.lyricist_le.classes_)
+        self.vocab_size['language'] = len(self.language_le.classes_)
+        self.vocab_size['song_id'] = len(self.song_le.classes_)
+
     def preprocess_members(self, members_df: pd.DataFrame):
         """Preprocess members
 
@@ -121,11 +136,12 @@ class Preprocesser:
         members_df['registration_init_time'] = members_df[
             'registration_init_time'].apply(
                 lambda x: np.nan if x < datetime(2005, 10, 1) else x)
-        members_df['expiration_date'] = members_df['expiration_date'].apply(
-            lambda x: np.nan if x >= datetime(2017, 9, 27) else x)
+        # members_df['expiration_date'] = members_df['expiration_date'].apply(
+        #     lambda x: np.nan if x >= datetime(2017, 9, 27) else x)
         dur_col = (members_df['expiration_date'] -
                    members_df['registration_init_time']
                    ).apply(lambda x: 0 if x < timedelta(0) else x.days)
+        dur_col.fillna(0, inplace=True)
         members_df['duration'] = self.dur_mm.fit_transform(
             dur_col.to_numpy().reshape(-1, 1)).reshape(-1)
 
@@ -149,14 +165,28 @@ class Preprocesser:
         # msno
         self.msno_le.fit(members_df['msno'])
 
-    @staticmethod
-    def padding_genre(split_genre: pd.Series):
+        # record vocab size
+        self.vocab_size['gender'] = len(self.gender_le.classes_)
+        self.vocab_size['city'] = len(self.city_le.classes_)
+        self.vocab_size['registered_via'] = len(self.via_le.classes_)
+        self.vocab_size['msno'] = len(self.msno_le.classes_)
+
+    def padding_genre(self, split_genre: pd.Series):
         """Pad genres
 
         :param split_genre: a series of lists of genres
         :return: a tensor of size (batch, vocab)
         """
 
-        return pad_sequence(list(map(torch.Tensor, split_genre.tolist())),
-                            batch_first=True,
-                            padding_value=0)
+        return pad_sequences(split_genre,
+                             maxlen=self.genre_maxlen,
+                             padding='post')
+
+    def transform_msno_song(self, union_df: pd.DataFrame):
+        """Encode msno and song_ids
+
+        :param union_df: the joined dataframes
+        """
+
+        union_df['msno'] = self.msno_le.transform(union_df['msno'])
+        union_df['song_id'] = self.song_le.transform(union_df['song_id'])
