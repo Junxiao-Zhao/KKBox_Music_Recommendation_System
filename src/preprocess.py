@@ -4,7 +4,10 @@ import pandas as pd
 import numpy as np
 from tensorflow.keras.utils import pad_sequences
 from datetime import datetime, timedelta
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
+from deepctr_torch.inputs import (SparseFeat, DenseFeat, VarLenSparseFeat,
+                                  get_feature_names)
 
 
 class Preprocesser:
@@ -190,3 +193,106 @@ class Preprocesser:
 
         union_df['msno'] = self.msno_le.transform(union_df['msno'])
         union_df['song_id'] = self.song_le.transform(union_df['song_id'])
+
+    def prepare_data(self,
+                     train_df: pd.DataFrame,
+                     songs_df: pd.DataFrame,
+                     members_df: pd.DataFrame,
+                     sparse_features: List[str],
+                     dense_features: List[str],
+                     embed_dim: int = 64,
+                     test_df: pd.DataFrame = None,
+                     train_val_split: float = 0.2):
+        """Prepare the input data
+
+        :param train_df: the train dataframe
+        :param songs_df: the songs dataframe
+        :param members_df: the members dataframe
+        :param sparse_features: a list of sparse features
+        :param dense_features: a list of dense features
+        :param embed_dim: the embedding dimension
+        :param test_df: the test dataframe
+        :param train_val_split: the proportion of the validation
+        :return: the train and validation datasets and dataframes,
+        feature columns, and test dataframe
+        """
+
+        # Preprocessing
+        self.preprocess_songs(songs_df)
+        self.preprocess_members(members_df)
+
+        if test_df is None:  # for validation
+            self.fit_train_test(train_df)
+        else:  # for submission
+            self.fit_train_test(pd.concat([train_df, test_df]))
+            self.transform_train_test(test_df)
+
+        self.transform_train_test(train_df)
+
+        tr_df, val_df = train_test_split(train_df,
+                                         test_size=train_val_split,
+                                         shuffle=False)
+        tr_song_df = tr_df.merge(songs_df, how='inner', on='song_id')
+        tr_song_msno_df = tr_song_df.merge(members_df, how='inner', on='msno')
+        val_song_df = val_df.merge(songs_df, how='inner', on='song_id')
+        val_song_msno_df = val_song_df.merge(members_df,
+                                             how='inner',
+                                             on='msno')
+        if test_df is not None:
+            ts_song_df = test_df.merge(songs_df, how='inner', on='song_id')
+            ts_song_msno_df = ts_song_df.merge(members_df,
+                                               how='inner',
+                                               on='msno')
+            self.transform_msno_song(ts_song_msno_df)
+            ts_genre = self.padding_genre(tr_song_msno_df['genre_ids'])
+        else:
+            ts_song_msno_df = None
+            ts_genre = None
+
+        self.transform_msno_song(tr_song_msno_df)
+        self.transform_msno_song(val_song_msno_df)
+
+        tr_genre = self.padding_genre(tr_song_msno_df['genre_ids'])
+        val_genre = self.padding_genre(val_song_msno_df['genre_ids'])
+
+        # Features
+        fixlen_feature_columns = [
+            SparseFeat(feat, self.vocab_size[feat], embedding_dim=embed_dim)
+            for feat in sparse_features
+        ] + [DenseFeat(feat, 1) for feat in dense_features]
+
+        varlen_feature_columns = [
+            VarLenSparseFeat(SparseFeat('genre_ids',
+                                        vocabulary_size=len(self.genre2idx),
+                                        embedding_dim=embed_dim),
+                             maxlen=self.genre_maxlen,
+                             combiner='mean')
+        ]
+
+        linear_feature_columns = fixlen_feature_columns \
+            + varlen_feature_columns
+        dnn_feature_columns = fixlen_feature_columns + varlen_feature_columns
+        feature_names = get_feature_names(linear_feature_columns +
+                                          dnn_feature_columns)
+
+        # Inputs
+        tr_model_input = {
+            name: tr_song_msno_df[name]
+            for name in feature_names
+        }
+        tr_model_input['genre_ids'] = tr_genre
+        val_model_input = {
+            name: val_song_msno_df[name]
+            for name in feature_names
+        }
+        val_model_input['genre_ids'] = val_genre
+        ts_model_input = {
+            name: ts_song_msno_df[name]
+            for name in feature_names
+        } if ts_song_msno_df is not None else {}
+        ts_model_input['genre_ids'] = ts_genre
+
+        return ((tr_model_input, tr_song_msno_df), (val_model_input,
+                                                    val_song_msno_df),
+                (ts_model_input,
+                 ts_song_msno_df), linear_feature_columns, dnn_feature_columns)
