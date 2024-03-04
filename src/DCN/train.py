@@ -83,14 +83,14 @@ if __name__ == "__main__":
     # train model
     model = DCN(linear_feature_columns, dnn_feature_columns, task='binary', l2_reg_embedding=1e-5, device=device)
     es = EarlyStopping(monitor='val_auc', min_delta=0, verbose=1, patience=1, mode='min')
-    mdckpt = ModelCheckpoint(filepath='checkpoints/DCN/model.ckpt', monitor='val_binary_crossentropy', verbose=1, save_best_only=True,
+    mdckpt = ModelCheckpoint(filepath='checkpoints/DCN/model.ckpt', monitor='val_auc', verbose=1, save_best_only=True,
                              mode='min')
 
     model.compile("adam", "binary_crossentropy", metrics=['auc'])
     history = model.fit(tr_model_input, tr_song_msno_df['target'].values,
                         batch_size=80,
                         epochs=10,
-                        verbose=2,
+                        verbose=1,
                         validation_data=(val_model_input, val_song_msno_df['target'].values),
                         shuffle=True,
                         callbacks=[es,mdckpt])
