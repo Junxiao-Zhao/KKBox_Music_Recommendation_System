@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 
 import ast
@@ -11,16 +12,23 @@ from deepctr_torch.inputs import (SparseFeat, DenseFeat, VarLenSparseFeat,
                                   get_feature_names)
 from deepctr_torch.callbacks import EarlyStopping, ModelCheckpoint
 
+parent_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+
+from preprocess import preprocess, generate_datasets
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if __name__ == "__main__":
     # load data
-    tr_song_msno_df = pd.read_csv("../../data/prep_tr_song_msno.csv")
-    val_song_msno_df = pd.read_csv("../../data/prep_val_song_msno.csv")
-    ts_song_msno_df = pd.read_csv("../../data/prep_ts_song_msno.csv")
+    train_df = pd.read_csv('../../data/train.csv')
+    test_df = pd.read_csv('../../data/test.csv')
+    songs_df = pd.read_csv('../../data/songs.csv')
+    members_df = pd.read_csv('../../data/members.csv')
 
-    with open('../../data/item2idx.json', 'r', encoding='utf-8') as f:
-        item2idx = json.load(f)
+    tr_song_msno_df, val_song_msno_df, ts_song_msno_df, item2idx = preprocess(
+        train_df, test_df, songs_df, members_df)
 
     # dataset and features
     sparse_features = [
@@ -39,63 +47,28 @@ if __name__ == "__main__":
     ]
     dense_features = [
         'song_length',
-        'num_artist',
-        'num_composer',
-        'num_lyricist',
+        # 'num_artist',
+        # 'num_composer',
+        # 'num_lyricist',
         'bd',
         'registration_init_time',
         'expiration_date',
-        'duration',
+        # 'duration',
     ]
     varlen_features = [
         'genre_ids',
         'artist_name',
     ]
-    embed_dim = 64
 
-    for feat in varlen_features:
-        tr_song_msno_df[feat] = tr_song_msno_df[feat].apply(ast.literal_eval)
-        val_song_msno_df[feat] = val_song_msno_df[feat].apply(ast.literal_eval)
-        ts_song_msno_df[feat] = ts_song_msno_df[feat].apply(ast.literal_eval)
-
-    full_df = pd.concat([tr_song_msno_df, val_song_msno_df, ts_song_msno_df],
-                        ignore_index=True)
-
-    fixlen_feature_columns = [
-        SparseFeat(feat, len(full_df[feat].unique()), embedding_dim=embed_dim)
-        for feat in sparse_features
-    ] + [DenseFeat(feat, 1) for feat in dense_features]
-
-    varlen_feature_columns = [
-        VarLenSparseFeat(SparseFeat(feat,
-                                    vocabulary_size=len(item2idx[feat]),
-                                    embedding_dim=embed_dim),
-                         maxlen=max(full_df[feat].apply(len)),
-                         combiner='mean') for feat in varlen_features
-    ]
-
-    linear_feature_columns = fixlen_feature_columns + varlen_feature_columns
-    dnn_feature_columns = fixlen_feature_columns + varlen_feature_columns
-    feature_names = get_feature_names(linear_feature_columns +
-                                      dnn_feature_columns)
-
-    tr_model_input = {name: tr_song_msno_df[name] for name in feature_names}
-    val_model_input = {name: val_song_msno_df[name] for name in feature_names}
-    ts_model_input = {name: ts_song_msno_df[name] for name in feature_names}
-
-    for feat in varlen_features:
-        tr_model_input[feat] = pad_sequences(tr_song_msno_df[feat],
-                                             maxlen=max(
-                                                 full_df[feat].apply(len)),
-                                             padding='post')
-        val_model_input[feat] = pad_sequences(val_song_msno_df[feat],
-                                              maxlen=max(
-                                                  full_df[feat].apply(len)),
-                                              padding='post')
-        ts_model_input[feat] = pad_sequences(ts_song_msno_df[feat],
-                                             maxlen=max(
-                                                 full_df[feat].apply(len)),
-                                             padding='post')
+    (tr_model_input, val_model_input, ts_model_input, linear_feature_columns,
+     dnn_feature_columns) = generate_datasets(tr_song_msno_df,
+                                              val_song_msno_df,
+                                              ts_song_msno_df,
+                                              sparse_features,
+                                              dense_features,
+                                              varlen_features,
+                                              item2idx,
+                                              embed_dim=64)
 
     # train model
     model = DeepFM(linear_feature_columns,
