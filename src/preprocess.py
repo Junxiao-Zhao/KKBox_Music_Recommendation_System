@@ -221,7 +221,8 @@ def preprocess(train_df: pd.DataFrame, test_df: pd.DataFrame,
 
     # train, validation, test
     tr_df, val_df = train_test_split(train_df, test_size=0.2, shuffle=False)
-    tr_song_df = tr_df.merge(songs_df, how='left', on='song_id')
+    tr_song_df = tr_df.merge(songs_df, how='left',
+                             on='song_id').drop_duplicates(['msno', 'song_id'])
     tr_song_msno_df = tr_song_df.merge(members_df, how='left', on='msno')
     val_song_df = val_df.merge(songs_df, how='left', on='song_id')
     val_song_msno_df = val_song_df.merge(members_df, how='left', on='msno')
