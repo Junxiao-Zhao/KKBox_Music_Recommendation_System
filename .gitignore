@@ -1,6 +1,7 @@
 data/
 tensorboard/
-checkpoints/
+*.ckpt
+*.pth
 *.pyc
 src/BERT4Rec/kw_enc.pkl
 src/BERT4Rec/vocab.json
