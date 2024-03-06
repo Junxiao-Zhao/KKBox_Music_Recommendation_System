@@ -1,15 +1,9 @@
 import os
 import sys
-import json
-
-import ast
 import torch
 import torch.optim as optim
 import pandas as pd
-from tensorflow.keras.utils import pad_sequences
 from deepctr_torch.models import DeepFM
-from deepctr_torch.inputs import (SparseFeat, DenseFeat, VarLenSparseFeat,
-                                  get_feature_names)
 from deepctr_torch.callbacks import EarlyStopping, ModelCheckpoint
 
 parent_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
@@ -37,8 +31,8 @@ if __name__ == "__main__":
         'source_system_tab',
         'source_screen_name',
         'source_type',
-        # 'composer',
-        # 'lyricist',
+        'composer',
+        'lyricist',
         'language',
         'is_featured',
         'city',
@@ -47,13 +41,13 @@ if __name__ == "__main__":
     ]
     dense_features = [
         'song_length',
-        # 'num_artist',
-        # 'num_composer',
-        # 'num_lyricist',
+        'num_artist',
+        'num_composer',
+        'num_lyricist',
         'bd',
         'registration_init_time',
         'expiration_date',
-        # 'duration',
+        'duration',
     ]
     varlen_features = [
         'genre_ids',
