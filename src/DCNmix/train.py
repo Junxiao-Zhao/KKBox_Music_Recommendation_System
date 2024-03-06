@@ -7,7 +7,7 @@ import torch
 import torch.optim as optim
 import pandas as pd
 from tensorflow.keras.utils import pad_sequences
-from deepctr_torch.models import DCN
+from deepctr_torch.models import DCNMix
 from deepctr_torch.inputs import (SparseFeat, DenseFeat, VarLenSparseFeat,
                                   get_feature_names)
 from deepctr_torch.callbacks import EarlyStopping, ModelCheckpoint
@@ -70,12 +70,14 @@ if __name__ == "__main__":
                                               item2idx,
                                               embed_dim=64)
 
-    model = DCN(linear_feature_columns,
+    model = DCNMix(linear_feature_columns,
                    dnn_feature_columns,
                    task='binary',
+                   cross_num=8,
                    l2_reg_embedding=1e-4,
                    dnn_dropout=0.3,
                    l2_reg_dnn=1e-4,
+                   l2_reg_cross=1e-4,
                    dnn_use_bn=True,
                    device=DEVICE)
 
@@ -84,8 +86,8 @@ if __name__ == "__main__":
                        verbose=1,
                        patience=2,
                        mode='max')
-    os.makedirs('../../checkpoints/DCN/', exist_ok=True)
-    mdckpt = ModelCheckpoint(filepath='../../checkpoints/DCN/model.ckpt',
+    os.makedirs('../../checkpoints/DCNMix/', exist_ok=True)
+    mdckpt = ModelCheckpoint(filepath='../../checkpoints/DCNMix/model.ckpt',
                              monitor='val_auc',
                              verbose=1,
                              save_best_only=True,
