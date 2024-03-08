@@ -31,8 +31,7 @@ project/
 ```
 
 ## Data
-- We randomly sampled 30% of the data from "train.csv": the first $\displaystyle{\frac{5}{6}}$ is the sampled training data, and last $\displaystyle{\frac{1}{6}}$ is the pseduo test set.
-- In the sampled training data, we use the first 80% as the training set, and last 20% as the validation set, which is the same as the baseline.
+- In the training data, we use the first 80% as the training set, and last 20% as the validation set, which is the same as the baseline.
 
 ## Notes
 - Only push codes. Do not push csv files.
