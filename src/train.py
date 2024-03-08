@@ -57,7 +57,7 @@ def train_pipeline(train_df: pd.DataFrame,
                    songs_df: pd.DataFrame,
                    members_df: pd.DataFrame,
                    deepctr_model,
-                   num_models: int = 10,
+                   num_models: int = 5,
                    **kwargs):
 
     tr_song_msno_df, val_song_msno_df, ts_song_msno_df, item2idx = preprocess(
@@ -139,30 +139,16 @@ if __name__ == "__main__":
     songs_df = pd.read_csv('../data/songs.csv')
     members_df = pd.read_csv('../data/members.csv')
 
-    # DeepFM
-    # train_pipeline(
-    #     train_df,
-    #     test_df,
-    #     songs_df,
-    #     members_df,
-    #     DeepFM,
-    #     l2_reg_embedding=1e-4,
-    #     l2_reg_dnn=1e-4,
-    #     dnn_dropout=0.3,
-    #     dnn_use_bn=True,
-    # )
-
-    # xDeepFM
     train_pipeline(
         train_df,
         test_df,
         songs_df,
         members_df,
-        xDeepFM,
-        l2_reg_cin=1e-4,
-        l2_reg_linear=1e-4,
+        WDL,
         l2_reg_embedding=1e-4,
-        l2_reg_dnn=1e-4,
         dnn_dropout=0.3,
+        l2_reg_dnn=1e-4,
         dnn_use_bn=True,
     )
+
+    
