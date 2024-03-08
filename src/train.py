@@ -139,16 +139,43 @@ if __name__ == "__main__":
     songs_df = pd.read_csv('../data/songs.csv')
     members_df = pd.read_csv('../data/members.csv')
 
+    # DeepFM
+    # train_pipeline(
+    #     train_df,
+    #     test_df,
+    #     songs_df,
+    #     members_df,
+    #     DeepFM,
+    #     l2_reg_embedding=1e-4,
+    #     l2_reg_dnn=1e-4,
+    #     dnn_dropout=0.3,
+    #     dnn_use_bn=True,
+    # )
+
+    # xDeepFM
     train_pipeline(
         train_df,
         test_df,
         songs_df,
         members_df,
-        WDL,
+        xDeepFM,
+        l2_reg_cin=1e-4,
+        l2_reg_linear=1e-4,
         l2_reg_embedding=1e-4,
-        dnn_dropout=0.3,
         l2_reg_dnn=1e-4,
+        dnn_dropout=0.3,
         dnn_use_bn=True,
     )
 
-    
+    # WDL
+    # train_pipeline(
+    #     train_df,
+    #     test_df,
+    #     songs_df,
+    #     members_df,
+    #     WDL,
+    #     l2_reg_embedding=1e-4,
+    #     dnn_dropout=0.3,
+    #     l2_reg_dnn=1e-4,
+    #     dnn_use_bn=True,
+    # )
