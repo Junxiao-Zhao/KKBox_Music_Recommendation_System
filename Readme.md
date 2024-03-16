@@ -5,18 +5,12 @@
 ```
 project/
 │
-├── docs/                   # Documentation files
-│
 ├── src/                    # Source files
 │   ├── models/             # each one's folder
 │
 ├── data/                   # CSV files
 │
 ├── notebooks/              # Jupyter notebooks
-│
-├── scripts/                # Scripts
-│
-├── config/                 # Configuration files
 |
 ├── tensorboard/            # TensorBoard
 |
@@ -33,6 +27,20 @@ project/
 ## Data
 - In the training data, we use the first 80% as the training set, and last 20% as the validation set, which is the same as the baseline.
 
-## Notes
-- Only push codes. Do not push csv files.
-- Do not push to `main` directly. Each person pushes to their own branch (use the first name as the branch name), then merge to `main`.
+## Setup Env
+```bash
+pip install -r requirements.txt
+```
+
+## Train
+Uncomment or add `train_pipeline` in [train.py](./src/train.py), then
+```bash
+cd ./src
+python train.py
+```
+
+## Test
+```bash
+cd ./src
+python bagging.py
+```
