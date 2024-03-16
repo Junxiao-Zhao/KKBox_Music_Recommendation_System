@@ -39,7 +39,7 @@ Uncomment or add `train_pipeline` in [train.py](./src/train.py), then
 cd ./src
 python train.py
 ```
-Modles will be saved in the "checkpoints" folder.
+Models will be saved in the "checkpoints" folder.
 
 ## Test
 ```bash
