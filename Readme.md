@@ -1,6 +1,6 @@
 # KKBox's Music Recommendation System
 
-## Project structure
+## Project Structure
 
 ```
 project/
@@ -25,7 +25,8 @@ project/
 ```
 
 ## Data
-- In the training data, we use the first 80% as the training set, and last 20% as the validation set, which is the same as the baseline.
+- Put the [csv files](https://www.kaggle.com/competitions/kkbox-music-recommendation-challenge/data) under the "data" folder.
+- In the training data, we use the first 80% as the training set, and last 20% as the validation set.
 
 ## Setup Env
 ```bash
@@ -38,9 +39,11 @@ Uncomment or add `train_pipeline` in [train.py](./src/train.py), then
 cd ./src
 python train.py
 ```
+Modles will be saved in the "checkpoints" folder.
 
 ## Test
 ```bash
 cd ./src
 python bagging.py
 ```
+An "output.csv" will be generated under the "data" folder.
